@@ -38,6 +38,7 @@ parse_result parse_value_null(parse_helper* ph, json_value* val);
 #define ISDIGIT1TO9(ch) ((ch) >= '1' && (ch) <= '9')
 #define PUTC(ph, ch) do { *(char*)helper_push(ph, sizeof(char)) = (ch); } while(0)
 #define PUTV(ph, v) do { memcpy(helper_push(ph, sizeof(json_value)), &v, sizeof(json_value)); sz++; } while(0)
+#define PUTM(ph, m) do { memcpy(helper_push(ph, sizeof(json_member)), &m, sizeof(json_member)); sz++; } while(0)
 
 parse_result json_parse(json_value* val, const char* json) {
     parse_helper ph;
@@ -201,6 +202,17 @@ void free_value(json_value* val) {
         case VALUE_STRING:
             free(val->str.s);
             break;
+        case VALUE_ARRAY:
+            for (size_t i = 0; i < val->arr.size; ++i) free_value(get_value_array_element(val, i));
+            free(val->arr.values);
+            break;
+        case VALUE_OBJECT:
+            for (size_t i = 0; i < val->obj.size; ++i) {
+                free(val->obj.members[i].key);
+                free_value(&val->obj.members[i].value);
+            }
+            free(val->obj.members);
+            break;
         default:
             break;
     }
@@ -260,13 +272,76 @@ parse_result parse_value_number(parse_helper* ph, json_value* val) {
 }
 
 parse_result parse_value_object(parse_helper* ph, json_value* val) {
+    EXPECT(ph, '{');
+    size_t sz = 0;
+    int ret = PARSE_OK;
+    parse_whitespace(ph);
+    if (*ph->json == '}') {
+        ph->json++;
+        val->type = VALUE_OBJECT;
+        val->obj.members = NULL;
+        val->obj.size = 0;
+        return ret;
+    }
+    
+    json_member member;
+    member.key = NULL;
+    for (;;) {
+        value_init(&member.value);
+        /* key */
+        if (*ph->json != '"') {
+            ret = PARSE_MISS_MEMBER_KEY;
+            break;
+        }
+        char* str;
+        if ((ret = parse_string(ph, &str, &member.key_length)) != PARSE_OK) break;
+        memcpy(member.key = (char*)malloc(member.key_length + 1), str, member.key_length + 1);
+        member.key[member.key_length + 1] = '\0';
+        
+        parse_whitespace(ph);
+        if (*ph->json != ':') {
+            ret = PARSE_MISS_MEMBER_COLON;
+            break;
+        }
+        ph->json++;
 
+        /* value */
+        parse_whitespace(ph);
+        if ((ret = parse_value(ph, &member.value)) != PARSE_OK) break;
+        PUTM(ph, member);
+
+        parse_whitespace(ph);
+        if (*ph->json == ',') {
+            ph->json++;
+            parse_whitespace(ph);
+        }
+        else if (*ph->json == '}') {
+            ph->json++;
+            val->type = VALUE_OBJECT;
+            val->obj.size = sz;
+            sz *= sizeof(json_member);
+            memcpy(val->obj.members = (json_member*)malloc(sz), helper_pop(ph, sz), sz);
+            return ret;
+        }
+        else {
+            ret = PARSE_MISS_COMMA_OR_CURLY_BRACKET;
+            break;
+        }
+    }
+    free(member.key);
+    for (int i = 0; i < sz; ++i) {
+        json_member* m = (json_member*)helper_pop(ph, sizeof(json_member));
+        free(m->key);
+        free_value(&m->value);
+    }
+    val->type = VALUE_NULL;
+    return ret;
 }
 
 parse_result parse_value_array(parse_helper* ph, json_value* val) {
     EXPECT(ph, '[');
     size_t sz = 0;
-    int ret;
+    int ret = PARSE_OK;
     parse_whitespace(ph);
     if (*ph->json == ']') {
         ph->json++;
@@ -341,4 +416,9 @@ size_t get_value_array_size(const json_value* val) {
 json_value* get_value_array_element(const json_value* val, size_t idx) {
     assert(val != NULL && val->type == VALUE_ARRAY && val->arr.size > idx);
     return &val->arr.values[idx];
+}
+
+size_t get_value_object_size(const json_value* val) {
+    assert(val != NULL && val->type == VALUE_OBJECT);
+    return val->obj.size;
 }

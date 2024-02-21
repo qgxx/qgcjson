@@ -148,6 +148,32 @@ void test_parse_array() {
     free_value(&v);
 }
 
+void test_parse_object() {
+    json_value v;
+    size_t i;
+
+    value_init(&v);
+    EXPECT_EQ_INT(PARSE_OK, json_parse(&v, " { } "));
+    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&v));
+    EXPECT_EQ_SIZE_T(0, get_value_object_size(&v));
+    free_value(&v);
+
+    value_init(&v);
+    EXPECT_EQ_INT(PARSE_OK, json_parse(&v,
+        " { "
+        "\"n\" : null , "
+        "\"f\" : false , "
+        "\"t\" : true , "
+        "\"i\" : 123 , "
+        "\"s\" : \"abc\", "
+        "\"a\" : [ 1, 2, 3 ],"
+        "\"o\" : { \"1\" : 1, \"2\" : 2, \"3\" : 3 }"
+        " } "
+    ));
+    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&v));
+    EXPECT_EQ_SIZE_T(7, get_value_object_size(&v));
+}
+
 #define TEST_ERROR(error, json)\
     do {\
         json_value v;\
@@ -242,6 +268,7 @@ void test_parse() {
     test_parse_number();
     test_parse_string();
     test_parse_array();
+    test_parse_object();
     test_parse_expect_value();
     test_parse_invalid_value();
     test_parse_root_not_singular();
