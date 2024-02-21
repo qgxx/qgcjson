@@ -91,7 +91,8 @@ parse_result parse_value(parse_helper* ph, json_value* val) {
         case 'f': return parse_value_false(ph, val);
         case 'n': return parse_value_null(ph, val);
         default: return parse_value_number(ph, val);
-        case '\"': return parse_value_string(ph, val);
+        case '"': return parse_value_string(ph, val);
+        case '\0': return PARSE_EXPECT_VALUR;
     }
 }
 
@@ -124,7 +125,7 @@ parse_result parse_string(parse_helper* ph, char** str, size_t* len) {
                     case 'u': 
                         if (!(p = parse_hex4(p, &codepoint))) 
                             PARSE_STRING_ERROR(PARSE_INVALID_UNICODE_HEX);
-                        if (codepoint >= 0xD800 && codepoint <= 0xD8FF) {
+                        if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
                             if (*p++ != '\\') PARSE_STRING_ERROR(PARSE_INVALID_UNICODE_SURROGATE);
                             if (*p++ != 'u') PARSE_STRING_ERROR(PARSE_INVALID_UNICODE_SURROGATE);
                             if (!(p = parse_hex4(p, &low_surrogate)))
@@ -136,7 +137,7 @@ parse_result parse_string(parse_helper* ph, char** str, size_t* len) {
                         encode_utf8(ph, codepoint);
                         break;
                     default:
-                        PARSE_STRING_ERROR(PARSE_INVALID_UNICODE_ESCAPE);
+                        PARSE_STRING_ERROR(PARSE_INVALID_STRING_ESCAPE);
                 }
                 break;
             case '\0':
@@ -148,7 +149,7 @@ parse_result parse_string(parse_helper* ph, char** str, size_t* len) {
     }
 }
 
-void set_string(json_value* val, const char* s, size_t len) {
+void set_value_string(json_value* val, const char* s, size_t len) {
     assert(val != NULL && (s != NULL || len == 0));
     free_value(val);
     val->str.s = (char*)malloc(len + 1);
@@ -208,12 +209,12 @@ value_type get_value_type(json_value* val) {
     return val->type;
 }
 
-const char* get_value_string(json_value* val) {
+const char* get_value_string(const json_value* val) {
     assert(val != NULL && val->type == VALUE_STRING);
     return val->str.s;
 }
 
-size_t get_value_string_length(json_value* val) {
+size_t get_value_string_length(const json_value* val) {
     assert(val != NULL && val->type == VALUE_STRING);
     return val->str.length;
 }
@@ -222,7 +223,7 @@ parse_result parse_value_string(parse_helper* ph, json_value* val) {
     parse_result ret;
     char* str;
     size_t str_len;
-    if ((ret = parse_string(ph, &str, &str_len)) == PARSE_OK) set_string(val, str, str_len);
+    if ((ret = parse_string(ph, &str, &str_len)) == PARSE_OK) set_value_string(val, str, str_len);
     return ret;
 }
 
