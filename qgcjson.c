@@ -334,6 +334,11 @@ parse_result parse_value_null(parse_helper* ph, json_value* val) {
 }
 
 size_t get_value_array_size(const json_value* val) {
-    assert(val != NULL);
+    assert(val != NULL && val->type == VALUE_ARRAY);
     return val->arr.size;
+}
+
+json_value* get_value_array_element(const json_value* val, size_t idx) {
+    assert(val != NULL && val->type == VALUE_ARRAY && val->arr.size > idx);
+    return &val->arr.values[idx];
 }

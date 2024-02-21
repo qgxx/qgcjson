@@ -25,6 +25,7 @@ size_t get_value_string_length(const json_value* val);
 void set_value_string(json_value* val, const char* s, size_t len);
 
 size_t get_value_array_size(const json_value* val);
+json_value* get_value_array_element(const json_value* val, size_t idx);
 
 #define value_init(v) do { (v)->type = VALUE_NULL; } while(0)
 
