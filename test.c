@@ -22,6 +22,11 @@ int pass_count = 0;
 #define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ((expect) == (actual), expect, actual, "%.17g")
 #define EXPECT_EQ_STRING(expect, actual, act_len) \
     EXPECT_EQ(sizeof(expect) - 1 == act_len && memcmp(expect, actual, act_len + 1) == 0, expect, actual, "%s")
+#if defined(_MSC_VER)
+#define EXPECT_EQ_SIZE_T(expect, actual) EXPECT_EQ((expect) == (actual), (size_t)expect, (size_t)actual, "%Iu")
+#else
+#define EXPECT_EQ_SIZE_T(expect, actual) EXPECT_EQ((expect) == (actual), (size_t)expect, (size_t)actual, "%zu")
+#endif
 
 void test_parse_null() {
     json_value v;
@@ -101,6 +106,47 @@ void test_parse_string() {
     TEST_STRING("\xE2\x82\xAC", "\"\\u20AC\""); /* Euro sign U+20AC */
     TEST_STRING("\xF0\x9D\x84\x9E", "\"\\uD834\\uDD1E\"");  /* G clef sign U+1D11E */
     TEST_STRING("\xF0\x9D\x84\x9E", "\"\\ud834\\udd1e\"");  /* G clef sign U+1D11E */
+}
+
+void test_parse_array() {
+    size_t i, j;
+    json_value v;
+
+    value_init(&v);
+    EXPECT_EQ_INT(PARSE_OK, json_parse(&v, "[ ]"));
+    EXPECT_EQ_INT(VALUE_ARRAY, get_value_type(&v));
+    EXPECT_EQ_SIZE_T(0, get_value_array_size(&v));
+    free_value(&v);
+
+    /*
+    value_init(&v);
+    EXPECT_EQ_INT(PARSE_OK, lept_parse(&v, "[ null , false , true , 123 , \"abc\" ]"));
+    EXPECT_EQ_INT(VALUE_ARRAY, lept_get_type(&v));
+    EXPECT_EQ_SIZE_T(5, lept_get_array_size(&v));
+    EXPECT_EQ_INT(VALUE_NULL,   lept_get_type(lept_get_array_element(&v, 0)));
+    EXPECT_EQ_INT(VALUE_FALSE,  lept_get_type(lept_get_array_element(&v, 1)));
+    EXPECT_EQ_INT(VALUE_TRUE,   lept_get_type(lept_get_array_element(&v, 2)));
+    EXPECT_EQ_INT(VALUE_NUMBER, lept_get_type(lept_get_array_element(&v, 3)));
+    EXPECT_EQ_INT(VALUE_STRING, lept_get_type(lept_get_array_element(&v, 4)));
+    EXPECT_EQ_DOUBLE(123.0, lept_get_number(lept_get_array_element(&v, 3)));
+    EXPECT_EQ_STRING("abc", lept_get_string(lept_get_array_element(&v, 4)), lept_get_string_length(lept_get_array_element(&v, 4)));
+    free_value(&v);
+
+    value_init(&v);
+    EXPECT_EQ_INT(PARSE_OK, lept_parse(&v, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]"));
+    EXPECT_EQ_INT(VALUE_ARRAY, lept_get_type(&v));
+    EXPECT_EQ_SIZE_T(4, lept_get_array_size(&v));
+    for (i = 0; i < 4; i++) {
+        json_value* a = lept_get_array_element(&v, i);
+        EXPECT_EQ_INT(VALUE_ARRAY, lept_get_type(a));
+        EXPECT_EQ_SIZE_T(i, lept_get_array_size(a));
+        for (j = 0; j < i; j++) {
+            json_value* e = lept_get_array_element(a, j);
+            EXPECT_EQ_INT(VALUE_NUMBER, lept_get_type(e));
+            EXPECT_EQ_DOUBLE((double)j, lept_get_number(e));
+        }
+    }
+    free_value(&v);*/
 }
 
 #define TEST_ERROR(error, json)\
@@ -196,6 +242,7 @@ void test_parse() {
     test_parse_boolean();
     test_parse_number();
     test_parse_string();
+    test_parse_array();
     test_parse_expect_value();
     test_parse_invalid_value();
     test_parse_root_not_singular();

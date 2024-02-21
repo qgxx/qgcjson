@@ -25,8 +25,8 @@ void encode_utf8(parse_helper* ph, unsigned codepoint);
 
 parse_result parse_value_string(parse_helper* ph, json_value* val);
 parse_result parse_value_number(parse_helper* ph, json_value* val);
-parse_result parse_value_object();
-parse_result parse_value_array();
+parse_result parse_value_object(parse_helper* ph, json_value* val);
+parse_result parse_value_array(parse_helper* ph, json_value* val);
 parse_result parse_value_true(parse_helper* ph, json_value* val);
 parse_result parse_value_false(parse_helper* ph, json_value* val);
 parse_result parse_value_null(parse_helper* ph, json_value* val);
@@ -37,6 +37,7 @@ parse_result parse_value_null(parse_helper* ph, json_value* val);
 #define ISDIGIT(ch) ((ch) >= '0' && (ch) <= '9') 
 #define ISDIGIT1TO9(ch) ((ch) >= '1' && (ch) <= '9')
 #define PUTC(ph, ch) do { *(char*)helper_push(ph, sizeof(char)) = (ch); } while(0)
+#define PUTV(ph, v) do { memcpy(helper_push(ph, sizeof(json_value)), &v, sizeof(json_value)); sz++; } while(0)
 
 parse_result json_parse(json_value* val, const char* json) {
     parse_helper ph;
@@ -92,6 +93,8 @@ parse_result parse_value(parse_helper* ph, json_value* val) {
         case 'n': return parse_value_null(ph, val);
         default: return parse_value_number(ph, val);
         case '"': return parse_value_string(ph, val);
+        case '[': return parse_value_array(ph, val);
+        case '{': return parse_value_object(ph, val);
         case '\0': return PARSE_EXPECT_VALUR;
     }
 }
@@ -256,6 +259,50 @@ parse_result parse_value_number(parse_helper* ph, json_value* val) {
     return PARSE_OK;
 }
 
+parse_result parse_value_object(parse_helper* ph, json_value* val) {
+
+}
+
+parse_result parse_value_array(parse_helper* ph, json_value* val) {
+    EXPECT(ph, '[');
+    size_t sz = 0;
+    int ret;
+    parse_whitespace(ph);
+    if (*ph->json == ']') {
+        ph->json++;
+        val->type = VALUE_ARRAY;
+        val->arr.values = NULL;
+        val->arr.size = 0;
+        return PARSE_OK;
+    }
+    for (;;) {
+        json_value sub_v;
+        value_init(&sub_v);
+        if ((ret = parse_value(ph, &sub_v)) != PARSE_OK) break;
+        PUTV(ph, sub_v);
+
+        parse_whitespace(ph);
+        if (*ph->json == ',') {
+            *ph->json++;
+            parse_whitespace(ph);
+        }  
+        else if (*ph->json == ']') {
+            *ph->json++;
+            val->type = VALUE_ARRAY;
+            val->arr.size = sz;
+            sz *= sizeof(json_value);
+            memcpy(val->arr.values = (json_value*)malloc(sz), helper_pop(ph, sz), sz);
+            return PARSE_OK;
+        }
+        else {
+            ret = PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+            break;
+        } 
+    }
+    for (size_t i = 0; i < sz; i++) free_value((json_value*)helper_pop(ph, sizeof(json_value)));
+    return ret;
+}
+
 parse_result parse_value_true(parse_helper* ph, json_value* val) {
     EXPECT(ph, 't');
     if (ph->json[0] == 'r' && ph->json[1] == 'u' && ph->json[2] == 'e') {
@@ -284,4 +331,9 @@ parse_result parse_value_null(parse_helper* ph, json_value* val) {
         return PARSE_OK;
     }
     return PARSE_INVALID_VALUE;
+}
+
+size_t get_value_array_size(const json_value* val) {
+    assert(val != NULL);
+    return val->arr.size;
 }
