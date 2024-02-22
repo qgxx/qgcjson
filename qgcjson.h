@@ -44,6 +44,8 @@ struct json_member {
     size_t key_length;
     json_value value;
 };
+const char* get_member_key(const json_member* m);
+json_value* get_member_value(json_member* m);
 
 typedef enum {
     PARSE_OK = 0,
@@ -67,6 +69,15 @@ typedef enum {
     PARSE_MISS_COMMA_OR_CURLY_BRACKET
 } parse_result;
 
+typedef enum {
+    STRINGIFY_OK = 0,
+    
+    STRINGIFY_INVALID_VALUE
+} generate_result;
+
 parse_result json_parse(json_value* val, const char* json);
+parse_result jsonfile_parse();
+generate_result json_generate(const json_value* val, char** json, size_t* len);
+generate_result jsonfile_generate();
 
 #endif // __QGCJSON_H__

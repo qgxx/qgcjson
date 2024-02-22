@@ -31,6 +31,12 @@ parse_result parse_value_true(parse_helper* ph, json_value* val);
 parse_result parse_value_false(parse_helper* ph, json_value* val);
 parse_result parse_value_null(parse_helper* ph, json_value* val);
 
+generate_result stringify_value(parse_helper* ph, const json_value* val);
+
+generate_result stringify_value_string(parse_helper* ph, const json_value* val);
+generate_result stringify_value_array(parse_helper* ph, const json_value* val);
+generate_result stringify_value_object(parse_helper* ph, const json_value* val);
+
 #define HELPER_STACK_INITIAL_SIZE 256
 
 #define EXPECT(ph, ch) do { assert(*ph->json == (ch)); ph->json++; } while(0)
@@ -39,6 +45,7 @@ parse_result parse_value_null(parse_helper* ph, json_value* val);
 #define PUTC(ph, ch) do { *(char*)helper_push(ph, sizeof(char)) = (ch); } while(0)
 #define PUTV(ph, v) do { memcpy(helper_push(ph, sizeof(json_value)), &v, sizeof(json_value)); sz++; } while(0)
 #define PUTM(ph, m) do { memcpy(helper_push(ph, sizeof(json_member)), &m, sizeof(json_member)); sz++; } while(0)
+#define PUTS(ph, s, len) do { memcpy(helper_push(ph, len), s, len); } while(0)
 
 parse_result json_parse(json_value* val, const char* json) {
     parse_helper ph;
@@ -59,6 +66,23 @@ parse_result json_parse(json_value* val, const char* json) {
     }
     assert(ph.top == 0);
     free(ph.stack);
+    return ret;
+}
+
+generate_result json_generate(const json_value* val, char** json, size_t* len) {
+    assert(val != NULL && json != NULL);
+    parse_helper ph;
+    generate_result ret = STRINGIFY_OK;
+    ph.stack = (char*)malloc(ph.size = HELPER_STACK_INITIAL_SIZE);
+    ph.top = 0;
+    if ((ret = stringify_value(&ph, val)) != STRINGIFY_OK) {
+        free(ph.stack);
+        *json = NULL;
+        return ret;
+    }
+    *len = ph.top;
+    PUTC(&ph, '\0');
+    *json = ph.stack;
     return ret;
 }
 
@@ -421,4 +445,72 @@ json_value* get_value_array_element(const json_value* val, size_t idx) {
 size_t get_value_object_size(const json_value* val) {
     assert(val != NULL && val->type == VALUE_OBJECT);
     return val->obj.size;
+}
+
+json_member* get_value_object_member(const json_value* val, size_t idx) {
+    assert(val != NULL && val->type == VALUE_OBJECT && idx < val->obj.size);
+    return &val->obj.members[idx];
+}
+
+generate_result stringify_value(parse_helper* ph, const json_value* val) {
+    int ret = STRINGIFY_OK;
+    switch (val->type) {
+        case VALUE_NULL: PUTS(ph, "null", 4); break;
+        case VALUE_TRUE: PUTS(ph, "true", 4); break;
+        case VALUE_FALSE: PUTS(ph, "false", 5); break;
+        case VALUE_NUMBER: 
+            ph->top -= 32 - sprintf(helper_push(ph, 32), "%.17g", val->num);
+            break;
+        case VALUE_STRING:
+            ret = STRINGIFY_INVALID_VALUE;
+            break;
+        case VALUE_ARRAY:
+            break;
+        case VALUE_OBJECT:
+            break;
+        default:
+            ret = STRINGIFY_INVALID_VALUE;
+            break;
+    }
+    return ret;
+}
+
+generate_result stringify_value_string(parse_helper* ph, const json_value* val) {
+    const char* s = val->str.s;
+    PUTC(ph, '"');
+    generate_result ret = STRINGIFY_OK;
+    for (size_t i = 0; i < val->str.length; ++i) {
+        unsigned char ch = (unsigned char)s[i];
+        switch (ch) {
+            case '\"': PUTS(ph, "\\\"", 2); break;
+            case '\\': PUTS(ph, "\\\\", 2); break;
+            case '\b': PUTS(ph, "\\b", 2); break;
+            case '\f': PUTS(ph, "\\f", 2); break;
+            case '\n': PUTS(ph, "\\n", 2); break;
+            case '\r': PUTS(ph, "\\r", 2); break;
+            case '\t': PUTS(ph, "\\t", 2); break;
+            default:
+                if (ch < 0x20) {
+                    char buffer[7];
+                    sprintf(buffer, "\\u%04X", ch);
+                    PUTS(ph, buffer, 6);
+                }
+                else PUTC(ph, s[i]);
+        }
+    }
+    PUTC(ph, '"');
+    return ret;
+}
+
+generate_result stringify_value_array(parse_helper* ph, const json_value* val) {
+    
+}
+
+generate_result stringify_value_object(parse_helper* ph, const json_value* val) {
+
+}
+
+json_value* get_member_value(json_member* m) {
+    assert(m != NULL);
+    return &m->value;
 }
