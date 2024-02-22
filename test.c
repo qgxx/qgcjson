@@ -280,8 +280,50 @@ void test_parse() {
     test_parse_miss_quotation_mark();
 }
 
+#define TEST_ROUNDTRIP(json)\
+    do {\
+        json_value v;\
+        char* json2;\
+        size_t length;\
+        value_init(&v);\
+        EXPECT_EQ_INT(PARSE_OK, json_parse(&v, json));\
+        EXPECT_EQ_INT(STRINGIFY_OK, json_generate(&v, &json2, &length));\
+        EXPECT_EQ_STRING(json, json2, length);\
+        free_value(&v);\
+        free(json2);\
+    } while(0)
+
+void test_generate() {
+    TEST_ROUNDTRIP("null");
+    TEST_ROUNDTRIP("false");
+    TEST_ROUNDTRIP("true");
+}
+
+void test_file() {
+    FILE* json_file = fopen("../test.json", "r");
+    if (json_file == NULL) {
+        perror("Open File Error!");
+        return;
+    }
+    fseek(json_file, 0, SEEK_END);
+    long sz = ftell(json_file);
+    fseek(json_file, 0, SEEK_SET);
+    char* json = (char*)malloc(sz + 1);
+    fread(json, 1, sz, json_file);
+    fclose(json_file);
+    json[sz] = '\0';
+    printf("%s\n", json);
+    json_value v;
+    value_init(&v);
+    EXPECT_EQ_INT(PARSE_OK, json_parse(&v, json));
+    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&v));
+    free(json);
+}
+
 int main() {
     test_parse();
+    test_generate();
+    test_file();
     printf("%d/%d (%3.2f%%) passed\n", pass_count, total_count, pass_count * 100.0 / total_count);
     return main_ret;
 }
