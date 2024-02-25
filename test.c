@@ -322,6 +322,7 @@ void test_stringify_string() {
     TEST_ROUNDTRIP("\"Hello\\nWorld\"");
     TEST_ROUNDTRIP("\"\\\" \\\\ / \\b \\f \\n \\r \\t\"");
     TEST_ROUNDTRIP("\"Hello\\u0000World\"");
+    TEST_ROUNDTRIP("\"亓\"");
 }
 
 void test_stringify_array() {
@@ -332,6 +333,27 @@ void test_stringify_array() {
 void test_stringify_object() {
     TEST_ROUNDTRIP("{}");
     TEST_ROUNDTRIP("{\"n\":null,\"f\":false,\"t\":true,\"i\":123,\"s\":\"abc\",\"a\":[1,2,3],\"o\":{\"1\":1,\"2\":2,\"3\":3}}");
+}
+
+void test_file() {
+    FILE* json_file = fopen("../test.json", "r");
+    if (json_file == NULL) {
+        perror("Open File Error!");
+        return;
+    }
+    fseek(json_file, 0, SEEK_END);
+    long sz = ftell(json_file);
+    printf("%d\n", sz);
+    fseek(json_file, 0, SEEK_SET);
+    char* json = (char*)malloc(sz + 1);
+    fread(json, 1, sz, json_file);
+    fclose(json_file);
+
+    long p = 0;
+    for (long i = 0; i < sz; i++) 
+        if (json[i] == '\n') sz--;
+    json[sz] = '\0';
+    TEST_ROUNDTRIP(json);
 }
 
 void test_generate() {
@@ -347,6 +369,7 @@ void test_generate() {
 int main() {
     test_parse(); 
     test_generate();
+    test_file();
     printf("%d/%d (%3.2f%%) passed\n", pass_count, total_count, pass_count * 100.0 / total_count);
     return main_ret;
 }

@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
 typedef struct parse_helper {
     const char* json;
     char* stack;
