@@ -465,10 +465,22 @@ generate_result stringify_value(parse_helper* ph, const json_value* val) {
             ret = stringify_value_string(ph, val->str.s, val->str.length);
             break;
         case VALUE_ARRAY:
-            ret = stringify_value_array(ph, val);
+            PUTC(ph, '[');
+            for (size_t i = 0; i < val->arr.size; i++) {
+                if (i > 0) PUTC(ph, ',');
+                stringify_value(ph, &val->arr.values[i]);
+            }
+            PUTC(ph, ']');
             break;
         case VALUE_OBJECT:
-            ret = stringify_value_object(ph, val);
+            PUTC(ph, '{');
+            for (size_t i = 0; i < val->obj.size; i++) {
+                if (i > 0) PUTC(ph, ',');
+                stringify_value_string(ph, val->obj.members[i].key, val->obj.members[i].key_length);
+                PUTC(ph, ':');
+                stringify_value(ph, &val->obj.members[i].value);
+            }
+            PUTC(ph, '}');
             break;
         default:
             ret = STRINGIFY_INVALID_VALUE;
@@ -489,7 +501,7 @@ generate_result stringify_value_string(parse_helper* ph, const char* str, size_t
         unsigned char ch = (unsigned char)str[i];
         switch (ch) {
             case '\\': *p++ = '\\'; *p++ = '\\'; break;
-            case '\"': *p++ = '\"'; *p++ = '\"'; break;
+            case '\"': *p++ = '\\'; *p++ = '\"'; break;
             case '\b': *p++ = '\\'; *p++ = 'b'; break;
             case '\n': *p++ = '\\'; *p++ = 'n'; break;
             case '\t': *p++ = '\\'; *p++ = 't'; break;
@@ -497,37 +509,17 @@ generate_result stringify_value_string(parse_helper* ph, const char* str, size_t
             case '\f': *p++ = '\\'; *p++ = 'f'; break;
             default:
                 if (ch < 0x20) {
-                    *p++ = '\\'; *p++ = 'X'; *p++ = '0'; *p++ = '0';
+                    *p++ = '\\'; *p++ = 'u'; *p++ = '0'; *p++ = '0';
                     *p++ = hex_digits[ch >> 4];
                     *p++ = hex_digits[ch & 15];
                 }
-                *p++ = ch;
+                else *p++ = ch;
+                break;
         }
     }
+    *p++ = '"';
     ph->top -= (sz - (p - head));
     return ret;
-}
-
-generate_result stringify_value_array(parse_helper* ph, const json_value* val) {
-    PUTC(ph, '[');
-    size_t sz = val->arr.size;
-    for (size_t i = 0; i < sz; ++i) {
-        if (i > 0) PUTC(ph, ',');
-        stringify_value(ph, &val->arr.values[i]);
-    }
-    PUTC(ph, ']');
-}
-
-generate_result stringify_value_object(parse_helper* ph, const json_value* val) {
-    PUTC(ph, '{');
-    size_t sz = val->obj.size;
-    for (size_t i = 0; i < sz; ++i) {
-        if (i > 0) PUTC(ph, ',');
-        stringify_value_string(ph, val->obj.members[i].key, val->obj.members[i].key_length);
-        PUTC(ph, ':');
-        stringify_value(ph, &val->obj.members[i].value);
-    }
-    PUTC(ph, '}');
 }
 
 json_value* get_member_value(json_member* m) {

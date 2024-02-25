@@ -293,46 +293,60 @@ void test_parse() {
         free(json2);\
     } while(0)
 
+void test_stringify_number() {
+    TEST_ROUNDTRIP("0");
+    TEST_ROUNDTRIP("-0");
+    TEST_ROUNDTRIP("1");
+    TEST_ROUNDTRIP("-1");
+    TEST_ROUNDTRIP("1.5");
+    TEST_ROUNDTRIP("-1.5");
+    TEST_ROUNDTRIP("3.25");
+    TEST_ROUNDTRIP("1e+20");
+    TEST_ROUNDTRIP("1.234e+20");
+    TEST_ROUNDTRIP("1.234e-20");
+
+    TEST_ROUNDTRIP("1.0000000000000002"); /* the smallest number > 1 */
+    TEST_ROUNDTRIP("4.9406564584124654e-324"); /* minimum denormal */
+    TEST_ROUNDTRIP("-4.9406564584124654e-324");
+    TEST_ROUNDTRIP("2.2250738585072009e-308");  /* Max subnormal double */
+    TEST_ROUNDTRIP("-2.2250738585072009e-308");
+    TEST_ROUNDTRIP("2.2250738585072014e-308");  /* Min normal positive double */
+    TEST_ROUNDTRIP("-2.2250738585072014e-308");
+    TEST_ROUNDTRIP("1.7976931348623157e+308");  /* Max double */
+    TEST_ROUNDTRIP("-1.7976931348623157e+308");
+}
+
+void test_stringify_string() {
+    TEST_ROUNDTRIP("\"\"");
+    TEST_ROUNDTRIP("\"Hello\"");
+    TEST_ROUNDTRIP("\"Hello\\nWorld\"");
+    TEST_ROUNDTRIP("\"\\\" \\\\ / \\b \\f \\n \\r \\t\"");
+    TEST_ROUNDTRIP("\"Hello\\u0000World\"");
+}
+
+void test_stringify_array() {
+    TEST_ROUNDTRIP("[]");
+    TEST_ROUNDTRIP("[null,false,true,123,\"abc\",[1,2,3]]");
+}
+
+void test_stringify_object() {
+    TEST_ROUNDTRIP("{}");
+    TEST_ROUNDTRIP("{\"n\":null,\"f\":false,\"t\":true,\"i\":123,\"s\":\"abc\",\"a\":[1,2,3],\"o\":{\"1\":1,\"2\":2,\"3\":3}}");
+}
+
 void test_generate() {
     TEST_ROUNDTRIP("null");
     TEST_ROUNDTRIP("false");
     TEST_ROUNDTRIP("true");
-}
-
-void test_file() {
-    FILE* json_file = fopen("../test.json", "r");
-    if (json_file == NULL) {
-        perror("Open File Error!");
-        return;
-    }
-    fseek(json_file, 0, SEEK_END);
-    long sz = ftell(json_file);
-    fseek(json_file, 0, SEEK_SET);
-    char* json = (char*)malloc(sz + 1);
-    fread(json, 1, sz, json_file);
-    fclose(json_file);
-    json_value v;
-    value_init(&v);
-    EXPECT_EQ_INT(PARSE_OK, json_parse(&v, json));
-    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&v)); 
-    #if 0
-    json_value* tmp = get_member_value(get_value_object_member(&v, 0));
-    for (size_t i = 0; i < tmp->str.length; ++i) {
-        unsigned char ch = (unsigned char)tmp->str.s[i];
-        char buffer[7];
-        sprintf(buffer, "\\X%.04X", ch);
-        buffer[6] = '\0';
-        printf("%s", buffer);
-    }
-    puts("");
-    #endif
-    free(json);
+    test_stringify_number();
+    test_stringify_string();
+    test_stringify_array();
+    test_stringify_object();
 }
 
 int main() {
-    test_parse();
+    test_parse(); 
     test_generate();
-    test_file();
     printf("%d/%d (%3.2f%%) passed\n", pass_count, total_count, pass_count * 100.0 / total_count);
     return main_ret;
 }
