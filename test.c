@@ -315,6 +315,17 @@ void test_file() {
     value_init(&v);
     EXPECT_EQ_INT(PARSE_OK, json_parse(&v, json));
     EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&v)); 
+    #if 0
+    json_value* tmp = get_member_value(get_value_object_member(&v, 0));
+    for (size_t i = 0; i < tmp->str.length; ++i) {
+        unsigned char ch = (unsigned char)tmp->str.s[i];
+        char buffer[7];
+        sprintf(buffer, "\\X%.04X", ch);
+        buffer[6] = '\0';
+        printf("%s", buffer);
+    }
+    puts("");
+    #endif
     free(json);
 }
 
