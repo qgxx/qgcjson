@@ -30,11 +30,11 @@ parse_result parse_value_true(parse_helper* ph, json_value* val);
 parse_result parse_value_false(parse_helper* ph, json_value* val);
 parse_result parse_value_null(parse_helper* ph, json_value* val);
 
-generate_result stringify_value(parse_helper* ph, const json_value* val);
+generate_result stringify_value(parse_helper* ph, const json_value* val, int isFile);
 
 generate_result stringify_value_string(parse_helper* ph, const char* str, size_t len);
-generate_result stringify_value_array(parse_helper* ph, const json_value* val);
-generate_result stringify_value_object(parse_helper* ph, const json_value* val);
+generate_result stringify_value_array(parse_helper* ph, const json_value* val, int isFile);
+generate_result stringify_value_object(parse_helper* ph, const json_value* val, int isFile);
 
 #define HELPER_STACK_INITIAL_SIZE 256
 
@@ -68,13 +68,35 @@ parse_result json_parse(json_value* val, const char* json) {
     return ret;
 }
 
-generate_result json_generate(const json_value* val, char** json, size_t* len) {
+parse_result jsonfile_parse(json_value *val, const char* path) {
+    FILE* json_file = fopen(path, "r");
+    parse_result ret = PARSE_OK;
+    if (json_file == NULL) {
+        return CAN_NOT_OPEN_FILE;
+    }
+    fseek(json_file, 0, SEEK_END);
+    long sz = ftell(json_file);
+    fseek(json_file, 0, SEEK_SET);
+    char* json = (char*)malloc(sz + 1);
+    fread(json, 1, sz, json_file);
+    fclose(json_file);
+
+    long p = 0;
+    for (long i = 0; i < sz; i++) 
+        if (json[i] == '\n') sz--;
+    json[sz] = '\0';
+    ret = json_parse(val, json);
+    free(json);
+    return ret;
+}
+
+generate_result json_generate(const json_value* val, char** json, size_t* len, int isFile) {
     assert(val != NULL && json != NULL);
     parse_helper ph;
     generate_result ret = STRINGIFY_OK;
     ph.stack = (char*)malloc(ph.size = HELPER_STACK_INITIAL_SIZE);
     ph.top = 0;
-    if ((ret = stringify_value(&ph, val)) != STRINGIFY_OK) {
+    if ((ret = stringify_value(&ph, val, isFile)) != STRINGIFY_OK) {
         free(ph.stack);
         *json = NULL;
         return ret;
@@ -82,6 +104,21 @@ generate_result json_generate(const json_value* val, char** json, size_t* len) {
     *len = ph.top;
     PUTC(&ph, '\0');
     *json = ph.stack;
+    return ret;
+}
+
+generate_result jsonfile_generate(const json_value* val, const char* path) {
+    generate_result ret;
+    char* json;
+    size_t len;
+    if ((ret = json_generate(val, &json, &len, 1)) != STRINGIFY_OK) return ret;
+
+    FILE* file = fopen(path, "w");
+    if (file == NULL) {
+        return CAN_NOT_OPEN_FILE_W;
+    }
+    fseek(file, 0, SEEK_SET);
+    fwrite(json, 1, len, file);
     return ret;
 }
 
@@ -451,7 +488,7 @@ json_member* get_value_object_member(const json_value* val, size_t idx) {
     return &val->obj.members[idx];
 }
 
-generate_result stringify_value(parse_helper* ph, const json_value* val) {
+generate_result stringify_value(parse_helper* ph, const json_value* val, int isFile) {
     int ret = STRINGIFY_OK;
     switch (val->type) {
         case VALUE_NULL: PUTS(ph, "null", 4); break;
@@ -464,22 +501,10 @@ generate_result stringify_value(parse_helper* ph, const json_value* val) {
             ret = stringify_value_string(ph, val->str.s, val->str.length);
             break;
         case VALUE_ARRAY:
-            PUTC(ph, '[');
-            for (size_t i = 0; i < val->arr.size; i++) {
-                if (i > 0) PUTC(ph, ',');
-                stringify_value(ph, &val->arr.values[i]);
-            }
-            PUTC(ph, ']');
+            ret = stringify_value_array(ph, val, isFile);
             break;
         case VALUE_OBJECT:
-            PUTC(ph, '{');
-            for (size_t i = 0; i < val->obj.size; i++) {
-                if (i > 0) PUTC(ph, ',');
-                stringify_value_string(ph, val->obj.members[i].key, val->obj.members[i].key_length);
-                PUTC(ph, ':');
-                stringify_value(ph, &val->obj.members[i].value);
-            }
-            PUTC(ph, '}');
+            ret = stringify_value_object(ph, val, isFile);
             break;
         default:
             ret = STRINGIFY_INVALID_VALUE;
@@ -507,7 +532,7 @@ generate_result stringify_value_string(parse_helper* ph, const char* str, size_t
             case '\r': *p++ = '\\'; *p++ = 'r'; break;
             case '\f': *p++ = '\\'; *p++ = 'f'; break;
             default:
-                if (ch < 0x20) {
+                if (ch < 0x20) {  // json not include 0x00-0x20
                     *p++ = '\\'; *p++ = 'u'; *p++ = '0'; *p++ = '0';
                     *p++ = hex_digits[ch >> 4];
                     *p++ = hex_digits[ch & 15];
@@ -518,6 +543,39 @@ generate_result stringify_value_string(parse_helper* ph, const char* str, size_t
     }
     *p++ = '"';
     ph->top -= (sz - (p - head));
+    return ret;
+}
+
+generate_result stringify_value_array(parse_helper* ph, const json_value* val, int isFile) {
+    generate_result ret = STRINGIFY_OK;
+    PUTC(ph, '[');
+    if (isFile) PUTC(ph, '\n');
+    for (size_t i = 0; i < val->arr.size; i++) {
+        if (isFile) PUTC(ph, '\n');
+        if (i > 0) PUTC(ph, ',');
+        stringify_value(ph, &val->arr.values[i], isFile);
+    }
+    if (isFile) PUTC(ph, '\n');
+    PUTC(ph, ']');
+    return ret;
+}
+
+generate_result stringify_value_object(parse_helper* ph, const json_value* val, int isFile) {
+    generate_result ret = STRINGIFY_OK;
+    PUTC(ph, '{');
+    if (isFile) PUTS(ph, "\n    ", 5);
+    for (size_t i = 0; i < val->obj.size; i++) {
+        if (i > 0) {
+            if (isFile) PUTS(ph, "\n    ", 5);
+            PUTC(ph, ',');
+        }
+        stringify_value_string(ph, val->obj.members[i].key, val->obj.members[i].key_length);
+        PUTC(ph, ':');
+        if (isFile) PUTC(ph, ' ');
+        stringify_value(ph, &val->obj.members[i].value, isFile);
+    }
+    if (isFile) PUTC(ph, '\n');
+    PUTC(ph, '}');
     return ret;
 }
 

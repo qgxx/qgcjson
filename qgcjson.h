@@ -2,6 +2,7 @@
 #define __QGCJSON_H__
 
 #include <stddef.h>
+#include <stdio.h>
 
 typedef enum { VALUE_STRING, VALUE_NUMBER, VALUE_OBJECT, VALUE_ARRAY, VALUE_TRUE, VALUE_FALSE, VALUE_NULL } value_type;
 
@@ -66,18 +67,22 @@ typedef enum {
 
     PARSE_MISS_MEMBER_KEY,
     PARSE_MISS_MEMBER_COLON,
-    PARSE_MISS_COMMA_OR_CURLY_BRACKET
+    PARSE_MISS_COMMA_OR_CURLY_BRACKET,
+
+    CAN_NOT_OPEN_FILE
 } parse_result;
 
 typedef enum {
     STRINGIFY_OK = 0,
     
-    STRINGIFY_INVALID_VALUE
+    STRINGIFY_INVALID_VALUE,
+
+    CAN_NOT_OPEN_FILE_W
 } generate_result;
 
 parse_result json_parse(json_value* val, const char* json);
-parse_result jsonfile_parse();
-generate_result json_generate(const json_value* val, char** json, size_t* len);
-generate_result jsonfile_generate();
+parse_result jsonfile_parse(json_value *val, const char* path);
+generate_result json_generate(const json_value* val, char** json, size_t* len, int isFile);
+generate_result jsonfile_generate(const json_value* val, const char* path);
 
-#endif // __QGCJSON_H__
+#endif //__QGCJSON_H__

@@ -287,7 +287,7 @@ void test_parse() {
         size_t length;\
         value_init(&v);\
         EXPECT_EQ_INT(PARSE_OK, json_parse(&v, json));\
-        EXPECT_EQ_INT(STRINGIFY_OK, json_generate(&v, &json2, &length));\
+        EXPECT_EQ_INT(STRINGIFY_OK, json_generate(&v, &json2, &length, 0));\
         EXPECT_EQ_STRING(json, json2, length);\
         free_value(&v);\
         free(json2);\
@@ -336,24 +336,12 @@ void test_stringify_object() {
 }
 
 void test_file() {
-    FILE* json_file = fopen("../test.json", "r");
-    if (json_file == NULL) {
-        perror("Open File Error!");
-        return;
-    }
-    fseek(json_file, 0, SEEK_END);
-    long sz = ftell(json_file);
-    printf("%d\n", sz);
-    fseek(json_file, 0, SEEK_SET);
-    char* json = (char*)malloc(sz + 1);
-    fread(json, 1, sz, json_file);
-    fclose(json_file);
+    json_value v;
+    value_init(&v);
+    EXPECT_EQ_INT(PARSE_OK, jsonfile_parse(&v, "../r_test.json"));
+    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&v));
 
-    long p = 0;
-    for (long i = 0; i < sz; i++) 
-        if (json[i] == '\n') sz--;
-    json[sz] = '\0';
-    TEST_ROUNDTRIP(json);
+    EXPECT_EQ_INT(STRINGIFY_OK, jsonfile_generate(&v, "../w_test.json"));
 }
 
 void test_generate() {
