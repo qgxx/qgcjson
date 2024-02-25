@@ -11,8 +11,8 @@ typedef struct json_member json_member;
 
 struct json_value {
     union {
-        struct { json_member* members; size_t size, capacity; } obj;
         struct { json_value* values; size_t size, capacity; } arr;  
+        struct { json_member* members; size_t size; } obj;
         struct { char* s; size_t length; } str;
         double num;
     };
@@ -44,9 +44,14 @@ struct json_member {
     char* key;
     size_t key_length;
     json_value value;
+    json_member* sons[2];
 };
 const char* get_member_key(const json_member* m);
 json_value* get_member_value(json_member* m);
+void insert_member(json_member* r, json_member* m);
+
+#define LS(member) (member)->sons[0]
+#define RS(member) (member)->sons[1]
 
 typedef enum {
     PARSE_OK = 0,

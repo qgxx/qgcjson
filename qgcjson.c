@@ -355,9 +355,8 @@ parse_result parse_value_object(parse_helper* ph, json_value* val) {
         }
         char* str;
         if ((ret = parse_string(ph, &str, &member.key_length)) != PARSE_OK) break;
-        memcpy(member.key = (char*)malloc(member.key_length + 1), str, member.key_length + 1);
-        member.key[member.key_length + 1] = '\0';
-        
+        memcpy(member.key = (char*)malloc(member.key_length + 1), str, member.key_length);
+        member.key[member.key_length] = '\0';
         parse_whitespace(ph);
         if (*ph->json != ':') {
             ret = PARSE_MISS_MEMBER_COLON;
@@ -368,6 +367,7 @@ parse_result parse_value_object(parse_helper* ph, json_value* val) {
         /* value */
         parse_whitespace(ph);
         if ((ret = parse_value(ph, &member.value)) != PARSE_OK) break;
+        LS(&member) = RS(&member) = NULL;
         PUTM(ph, member);
 
         parse_whitespace(ph);
@@ -381,6 +381,8 @@ parse_result parse_value_object(parse_helper* ph, json_value* val) {
             val->obj.size = sz;
             sz *= sizeof(json_member);
             memcpy(val->obj.members = (json_member*)malloc(sz), helper_pop(ph, sz), sz);
+            json_member* root = &val->obj.members[0];
+            for (size_t i = 1; i < val->obj.size; i++) insert_member(root, &val->obj.members[i]);
             return ret;
         }
         else {
@@ -566,8 +568,8 @@ generate_result stringify_value_object(parse_helper* ph, const json_value* val, 
     if (isFile) PUTS(ph, "\n    ", 5);
     for (size_t i = 0; i < val->obj.size; i++) {
         if (i > 0) {
-            if (isFile) PUTS(ph, "\n    ", 5);
             PUTC(ph, ',');
+            if (isFile) PUTS(ph, "\n    ", 5);
         }
         stringify_value_string(ph, val->obj.members[i].key, val->obj.members[i].key_length);
         PUTC(ph, ':');
@@ -582,4 +584,21 @@ generate_result stringify_value_object(parse_helper* ph, const json_value* val, 
 json_value* get_member_value(json_member* m) {
     assert(m != NULL);
     return &m->value;
+}
+
+void insert_member(json_member* r, json_member* m) {
+    if (strcmp(r->key, m->key) < 0) {
+        if (RS(r) == NULL) {
+            RS(r) = m;
+            return;
+        }
+        insert_member(RS(r), m);
+    }
+    else {
+        if (LS(r) == NULL) {
+            LS(r) = m;
+            return;
+        }
+        insert_member(LS(r), m);
+    }
 }
