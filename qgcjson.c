@@ -33,7 +33,7 @@ parse_result parse_value_null(parse_helper* ph, json_value* val);
 
 generate_result stringify_value(parse_helper* ph, const json_value* val);
 
-generate_result stringify_value_string(parse_helper* ph, const json_value* val);
+generate_result stringify_value_string(parse_helper* ph, const char* str, size_t len);
 generate_result stringify_value_array(parse_helper* ph, const json_value* val);
 generate_result stringify_value_object(parse_helper* ph, const json_value* val);
 
@@ -462,11 +462,13 @@ generate_result stringify_value(parse_helper* ph, const json_value* val) {
             ph->top -= 32 - sprintf(helper_push(ph, 32), "%.17g", val->num);
             break;
         case VALUE_STRING:
-            ret = STRINGIFY_INVALID_VALUE;
+            ret = stringify_value_string(ph, val->str.s, val->str.length);
             break;
         case VALUE_ARRAY:
+            ret = stringify_value_array(ph, val);
             break;
         case VALUE_OBJECT:
+            ret = stringify_value_object(ph, val);
             break;
         default:
             ret = STRINGIFY_INVALID_VALUE;
@@ -475,39 +477,57 @@ generate_result stringify_value(parse_helper* ph, const json_value* val) {
     return ret;
 }
 
-generate_result stringify_value_string(parse_helper* ph, const json_value* val) {
-    const char* s = val->str.s;
-    PUTC(ph, '"');
-    generate_result ret = STRINGIFY_OK;
-    for (size_t i = 0; i < val->str.length; ++i) {
-        unsigned char ch = (unsigned char)s[i];
+generate_result stringify_value_string(parse_helper* ph, const char* str, size_t len) {
+    static const char hex_digits[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+    int ret = STRINGIFY_OK;
+    size_t sz = len * 6 + 2;
+    char* p;
+    char* head;
+    p = head = helper_push(ph, sz);
+    *p++ = '"';
+    for (size_t i = 0; i < len; ++i) {
+        unsigned char ch = (unsigned char)str[i];
         switch (ch) {
-            case '\"': PUTS(ph, "\\\"", 2); break;
-            case '\\': PUTS(ph, "\\\\", 2); break;
-            case '\b': PUTS(ph, "\\b", 2); break;
-            case '\f': PUTS(ph, "\\f", 2); break;
-            case '\n': PUTS(ph, "\\n", 2); break;
-            case '\r': PUTS(ph, "\\r", 2); break;
-            case '\t': PUTS(ph, "\\t", 2); break;
+            case '\\': *p++ = '\\'; *p++ = '\\'; break;
+            case '\"': *p++ = '\"'; *p++ = '\"'; break;
+            case '\b': *p++ = '\\'; *p++ = 'b'; break;
+            case '\n': *p++ = '\\'; *p++ = 'n'; break;
+            case '\t': *p++ = '\\'; *p++ = 't'; break;
+            case '\r': *p++ = '\\'; *p++ = 'r'; break;
+            case '\f': *p++ = '\\'; *p++ = 'f'; break;
             default:
                 if (ch < 0x20) {
-                    char buffer[7];
-                    sprintf(buffer, "\\u%04X", ch);
-                    PUTS(ph, buffer, 6);
+                    *p++ = '\\'; *p++ = 'X'; *p++ = '0'; *p++ = '0';
+                    *p++ = hex_digits[ch >> 4];
+                    *p++ = hex_digits[ch & 15];
                 }
-                else PUTC(ph, s[i]);
+                *p++ = ch;
         }
     }
-    PUTC(ph, '"');
+    ph->top -= (sz - (p - head));
     return ret;
 }
 
 generate_result stringify_value_array(parse_helper* ph, const json_value* val) {
-    
+    PUTC(ph, '[');
+    size_t sz = val->arr.size;
+    for (size_t i = 0; i < sz; ++i) {
+        if (i > 0) PUTC(ph, ',');
+        stringify_value(ph, &val->arr.values[i]);
+    }
+    PUTC(ph, ']');
 }
 
 generate_result stringify_value_object(parse_helper* ph, const json_value* val) {
-
+    PUTC(ph, '{');
+    size_t sz = val->obj.size;
+    for (size_t i = 0; i < sz; ++i) {
+        if (i > 0) PUTC(ph, ',');
+        stringify_value_string(ph, val->obj.members[i].key, val->obj.members[i].key_length);
+        PUTC(ph, ':');
+        stringify_value(ph, &val->obj.members[i].value);
+    }
+    PUTC(ph, '}');
 }
 
 json_value* get_member_value(json_member* m) {

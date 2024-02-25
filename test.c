@@ -311,12 +311,10 @@ void test_file() {
     char* json = (char*)malloc(sz + 1);
     fread(json, 1, sz, json_file);
     fclose(json_file);
-    json[sz] = '\0';
-    printf("%s\n", json);
     json_value v;
     value_init(&v);
     EXPECT_EQ_INT(PARSE_OK, json_parse(&v, json));
-    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&v));
+    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&v)); 
     free(json);
 }
 
