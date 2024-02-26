@@ -382,7 +382,7 @@ parse_result parse_value_object(parse_helper* ph, json_value* val) {
             sz *= sizeof(json_member);
             memcpy(val->obj.members = (json_member*)malloc(sz), helper_pop(ph, sz), sz);
             json_member* root = &val->obj.members[0];
-            for (size_t i = 1; i < val->obj.size; i++) insert_member(root, &val->obj.members[i]);
+            for (size_t i = 1; i < val->obj.size; i++) down_member(root, &val->obj.members[i]);
             return ret;
         }
         else {
@@ -586,19 +586,19 @@ json_value* get_member_value(json_member* m) {
     return &m->value;
 }
 
-void insert_member(json_member* r, json_member* m) {
+void down_member(json_member* r, json_member* m) {
     if (strcmp(r->key, m->key) < 0) {
         if (RS(r) == NULL) {
             RS(r) = m;
             return;
         }
-        insert_member(RS(r), m);
+        down_member(RS(r), m);
     }
     else {
         if (LS(r) == NULL) {
             LS(r) = m;
             return;
         }
-        insert_member(LS(r), m);
+        down_member(LS(r), m);
     }
 }
