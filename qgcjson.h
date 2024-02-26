@@ -12,7 +12,7 @@ typedef struct json_member json_member;
 struct json_value {
     union {
         struct { json_value* values; size_t size, capacity; } arr;  
-        struct { json_member* members; size_t size; } obj;
+        struct { json_member* members; size_t size, capacity; } obj;
         struct { char* s; size_t length; } str;
         double num;
     };
@@ -28,11 +28,30 @@ void set_value_string(json_value* val, const char* s, size_t len);
 double get_value_number(const json_value* val);
 void set_value_number(json_value* val, double num);
 
+void set_value_null(json_value* val);
+void set_value_true(json_value* val);
+void set_value_false(json_value* val);
+
 size_t get_value_array_size(const json_value* val);
+size_t get_value_array_capacity(const json_value* val);
 json_value* get_value_array_element(const json_value* val, size_t idx);
+void set_value_array(json_value* val, size_t capacity);
+void reverse_value_array(json_value* val, size_t capacity);
+void shrink_value_array(json_value* val, size_t capacity);
+void array_push_back(json_value* val);
+void array_push_front(json_value* val);
+json_value* array_pop_back(json_value* val);
+json_value* array_pop_front(json_value* val);
+void array_insert_element(json_value* val, size_t idx);
+void array_delete_element(json_value* val, size_t idx);
 
 size_t get_value_object_size(const json_value* val);
-json_member* get_value_object_member(const json_value* val, size_t idx);
+size_t get_value_object_capacity(const json_value* val);
+json_member* get_value_object_member_idx(const json_value* val, size_t idx);
+int object_find_member(const json_value* val, const char* key, size_t len);
+json_value* get_value_object_member_value(const json_value* val, const char* key, size_t len);
+void insert_member(json_value* v, json_member* m);
+void remove_member(json_value* v, const char* key, size_t len);
 
 void set_value_true(json_value* val);
 void set_value_false(json_value* val);
@@ -48,7 +67,7 @@ struct json_member {
 };
 const char* get_member_key(const json_member* m);
 json_value* get_member_value(json_member* m);
-void insert_member(json_member* r, json_member* m);
+void down_member(json_member* r, json_member* m);
 
 #define LS(member) (member)->sons[0]
 #define RS(member) (member)->sons[1]

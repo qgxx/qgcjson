@@ -485,7 +485,7 @@ size_t get_value_object_size(const json_value* val) {
     return val->obj.size;
 }
 
-json_member* get_value_object_member(const json_value* val, size_t idx) {
+json_member* get_value_object_member_idx(const json_value* val, size_t idx) {
     assert(val != NULL && val->type == VALUE_OBJECT && idx < val->obj.size);
     return &val->obj.members[idx];
 }
