@@ -19,7 +19,7 @@ struct json_value {
     value_type type;
 };
 void free_value(json_value* val);
-value_type get_value_type(json_value* val);
+value_type get_value_type(const json_value* val);
 
 const char* get_value_string(const json_value* val);
 size_t get_value_string_length(const json_value* val);
@@ -37,17 +37,22 @@ size_t get_value_array_capacity(const json_value* val);
 json_value* get_value_array_element(const json_value* val, size_t idx);
 void set_value_array(json_value* val, size_t capacity);
 void reverse_value_array(json_value* val, size_t capacity);
-void shrink_value_array(json_value* val, size_t capacity);
-void array_push_back(json_value* val);
-void array_push_front(json_value* val);
+void shrink_value_array(json_value* val);
+void clear_value_array(json_value* val);
+void array_push_back(json_value* val, const json_value* e);
+void array_push_front(json_value* val, const json_value* e);
 json_value* array_pop_back(json_value* val);
 json_value* array_pop_front(json_value* val);
 void array_insert_element(json_value* val, size_t idx);
 void array_delete_element(json_value* val, size_t idx);
+void array_erase_element(json_value* val, size_t idx);
 
 size_t get_value_object_size(const json_value* val);
 size_t get_value_object_capacity(const json_value* val);
-json_member* get_value_object_member_idx(const json_value* val, size_t idx);
+json_member* get_value_object_member(const json_value* val, size_t idx);
+void set_value_object(json_value* val, size_t capacity);
+void reverse_value_object(json_value* val, size_t capacity);
+void shrink_value_object(json_value* val);
 int object_find_member(const json_value* val, const char* key, size_t len);
 json_value* get_value_object_member_value(const json_value* val, const char* key, size_t len);
 void insert_member(json_value* v, json_member* m);
@@ -67,10 +72,11 @@ struct json_member {
 };
 const char* get_member_key(const json_member* m);
 json_value* get_member_value(json_member* m);
-void down_member(json_member* r, json_member* m);
+void down_member(json_member* f, json_member* m);
 
 void member_copy(json_member* lhs, const json_member* rhs);
 void member_move(json_member* lhs, json_member* rhs);
+void member_is_equal(json_member* dst, const json_member* src);
 
 #define LS(member) (member)->sons[0]
 #define RS(member) (member)->sons[1]

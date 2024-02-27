@@ -344,6 +344,12 @@ void test_file() {
     value_init(&v);
     EXPECT_EQ_INT(PARSE_OK, jsonfile_parse(&v, "../r_test.json"));
     EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&v));
+    #if 0
+    for (size_t i = 0; i < get_value_object_size(&v); i++) {
+        json_member* m = get_value_object_member(&v, i);
+        printf("LS: %s, RS: %s\n", (LS(m) == NULL ? "null" : LS(m)->key), (RS(m) == NULL ? "null" : RS(m)->key));
+    }
+    #endif
 
     EXPECT_EQ_INT(STRINGIFY_OK, jsonfile_generate(&v, "../w_test.json"));
 }
