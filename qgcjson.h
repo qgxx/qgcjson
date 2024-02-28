@@ -58,9 +58,9 @@ json_value* get_value_object_member_value(const json_value* val, const char* key
 void insert_member(json_value* v, json_member* m);
 void remove_member(json_value* v, const char* key, size_t len);
 
-void value_copy(json_value* lhs, const json_value* rhs);
-void value_move(json_value* lhs, json_value* rhs);
-void value_is_equal(const json_value* lhs, const json_value* rhs);
+void value_copy(json_value* dst, const json_value* src);
+void value_move(json_value* dst, json_value* src);
+int value_is_equal(const json_value* lhs, const json_value* rhs);
 
 #define value_init(v) do { (v)->type = VALUE_NULL; } while(0)
 
@@ -74,9 +74,9 @@ const char* get_member_key(const json_member* m);
 json_value* get_member_value(json_member* m);
 void down_member(json_member* f, json_member* m);
 
-void member_copy(json_member* lhs, const json_member* rhs);
-void member_move(json_member* lhs, json_member* rhs);
-void member_is_equal(json_member* dst, const json_member* src);
+void member_copy(json_member* dst, const json_member* src);
+void member_move(json_member* dst, json_member* src);
+int member_is_equal(json_member* lhs, const json_member* rhs);
 
 #define LS(member) (member)->sons[0]
 #define RS(member) (member)->sons[1]
