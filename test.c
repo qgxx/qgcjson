@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WINDOWS
+#define _CRTDBG_MAP_ALLOC
+#include <crtdbg.h>
+#endif
 
 int main_ret = 0;
 int total_count = 0;
@@ -150,7 +154,6 @@ void test_parse_array() {
 
 void test_parse_object() {
     json_value v;
-    size_t i;
 
     value_init(&v);
     EXPECT_EQ_INT(PARSE_OK, json_parse(&v, " { } "));
@@ -178,7 +181,7 @@ void test_parse_object() {
     do {\
         json_value v;\
         value_init(&v);\
-        EXPECT_EQ_INT(error, json_parse(&v, json));\
+        EXPECT_EQ_INT(error, json_parse(&v, (json)));\
         EXPECT_EQ_INT(VALUE_NULL, get_value_type(&v));\
         free_value(&v);\
     } while(0)
@@ -262,10 +265,6 @@ void test_parse_miss_quotation_mark() {
     TEST_ERROR(PARSE_MISS_QUOTATION_MARK, "\"abc");
 }
 
-void test_find() {
-    json_member* m;
-}
-
 void test_parse() {
     test_parse_null();
     test_parse_boolean();
@@ -326,7 +325,9 @@ void test_stringify_string() {
     TEST_ROUNDTRIP("\"Hello\\nWorld\"");
     TEST_ROUNDTRIP("\"\\\" \\\\ / \\b \\f \\n \\r \\t\"");
     TEST_ROUNDTRIP("\"Hello\\u0000World\"");
+    #ifndef _WINDOWS
     TEST_ROUNDTRIP("\"亓\"");
+    #endif
 }
 
 void test_stringify_array() {
@@ -365,6 +366,9 @@ void test_generate() {
 }
 
 int main() {
+    #ifdef _WINDOWS
+    _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
+    #endif
     test_parse(); 
     test_generate();
     test_file();

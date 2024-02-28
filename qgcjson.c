@@ -1,4 +1,4 @@
-#include "qgcjson.h"
+﻿#include "qgcjson.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -510,10 +510,8 @@ void clear_value_array(json_value* val) {
 #if 0
 void array_push_back(json_value* val, const json_value* e) {
     assert(val != NULL && e != NULL && val->type == VALUE_ARRAY);
-    if (val->arr.size >= val->arr.capacity) {
-        val->arr.capacity += val->arr.capacity >> 1;
-        val->arr.values = (json_value*)realloc(val->arr.values, val->arr.capacity * sizeof(json_value));
-    } 
+    if (val->arr.size >= val->arr.capacity) val->arr.capacity += val->arr.capacity >> 1;
+    val->arr.values = (json_value*)realloc(val->arr.values, val->arr.capacity * sizeof(json_value));
     value_copy(&val->arr.values[val->arr.size++], e);
 }
 #endif
@@ -686,8 +684,13 @@ void value_copy(json_value* dst, const json_value* src) {
             break;
         case VALUE_ARRAY:
             set_value_array(dst, src->arr.capacity);
-            // ...
-            dst->arr.size = src->arr.size;
+            for (size_t i = 0; i < src->arr.size; i++) {
+                json_value* v;
+                value_init(v);
+                value_copy(v, &src->arr.values[i]);
+                memcpy(&dst->arr.values[dst->arr.size++], v, sizeof(json_value));
+                free_value(v);
+            }
             break;
         case VALUE_OBJECT:
             set_value_object(dst, src->arr.capacity);
