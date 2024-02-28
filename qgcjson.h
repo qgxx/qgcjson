@@ -46,6 +46,7 @@ json_value* array_pop_front(json_value* val);
 void array_insert_element(json_value* val, size_t idx);
 void array_delete_element(json_value* val, size_t idx);
 void array_erase_element(json_value* val, size_t idx);
+void array_clear_element(json_value* val);
 
 size_t get_value_object_size(const json_value* val);
 size_t get_value_object_capacity(const json_value* val);
@@ -54,7 +55,6 @@ void set_value_object(json_value* val, size_t capacity);
 void reverse_value_object(json_value* val, size_t capacity);
 void shrink_value_object(json_value* val);
 int object_find_member(const json_value* val, const char* key, size_t len);
-json_value* get_value_object_member_value(const json_value* val, const char* key, size_t len);
 void insert_member(json_value* v, json_member* m);
 void remove_member(json_value* v, const char* key, size_t len);
 
@@ -63,6 +63,8 @@ void value_move(json_value* dst, json_value* src);
 int value_is_equal(const json_value* lhs, const json_value* rhs);
 
 #define value_init(v) do { (v)->type = VALUE_NULL; } while(0)
+#define ARRAAY_VALUE(val, idx) (val)->arr.values[idx]
+#define OBJECT_MEMBER(val, idx) (val)->obj.members[idx]
 
 struct json_member {
     char* key;
@@ -70,13 +72,15 @@ struct json_member {
     json_value value;
     json_member* sons[2];
 };
-const char* get_member_key(const json_member* m);
+const char* get_member_key(const json_member* m, size_t* len);
 json_value* get_member_value(json_member* m);
 void down_member(json_member* f, json_member* m);
+json_member* search_member(json_member* f, const char* key, size_t len);
+void rebuild_member_tree(json_value* val);
 
-void member_copy(json_member* dst, const json_member* src);
-void member_move(json_member* dst, json_member* src);
-int member_is_equal(json_member* lhs, const json_member* rhs);
+void member_copy(json_member* dst, const json_member* src, json_value* dstr);
+void member_move(json_member* dst, json_member* src, json_value* dstr);
+int member_is_equal(const json_member* lhs, const json_member* rhs);
 
 #define LS(member) (member)->sons[0]
 #define RS(member) (member)->sons[1]

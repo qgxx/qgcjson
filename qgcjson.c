@@ -498,9 +498,52 @@ void set_value_object(json_value* val, size_t capacity) {
     val->obj.members = capacity > 0 ? (json_member*)malloc(capacity * sizeof(json_member)) : NULL;
 }
 
+void reverse_value_object(json_value* val, size_t capacity) {
+    assert(val != NULL && val->type == VALUE_OBJECT && capacity >= val->arr.size);
+    val->obj.members = (json_member*)realloc(val->obj.members, capacity * sizeof(json_member));
+    val->obj.capacity = capacity;
+}
+
+void shrink_value_object(json_value* val) {
+    assert(val != NULL && val->type == VALUE_OBJECT);
+    val->obj.members = (json_member*)realloc(val->obj.members, val->obj.size * sizeof(json_member));
+    val->obj.capacity = val->obj.size;
+}
+
+int object_find_member(const json_value* val, const char* key, size_t len) {
+    int ret = 1;
+    if (search_member(val->obj.members, key, len) == NULL) ret = 0;
+    return ret;
+}
+
+void insert_member(json_value* v, json_member* m) {
+    assert(v != NULL && v->type == VALUE_OBJECT && m != NULL);
+    if (v->obj.size >= v->obj.capacity) {
+        v->obj.capacity += v->obj.capacity >> 1;
+        v->obj.members = (json_member*)realloc(v->obj.members, v->obj.capacity * sizeof(json_member));
+    }
+    member_copy(&v->obj.members[v->obj.size++], m, v);
+    down_member(v->obj.members, &v->obj.members[v->obj.size - 1]);
+}
+
+void remove_member(json_value* v, const char* key, size_t len) {
+    assert(v != NULL && v->type == VALUE_OBJECT && key != NULL && len > 0);
+    json_member* m = search_member(v->obj.members, key, len);
+    if (m == NULL) return;
+    if (v->obj.size == 1 || member_is_equal(&v->obj.members[v->obj.size - 1], m)) {
+        free(m->key);
+        free_value(&m->value);
+        v->obj.size--;
+    }
+    else {
+        size_t idx = (m - v->obj.members) / sizeof(json_member);
+        memmove(&v->obj.members[idx], &v->obj.members[idx + 1], v->obj.size - idx - 1);
+    }
+}
+
 void reverse_value_array(json_value* val, size_t capacity) {
     assert(val != NULL && val->type == VALUE_ARRAY && capacity >= val->arr.size);
-    val->arr.values = (json_value*)realloc(val->arr.values, capacity * sizeof(capacity));
+    val->arr.values = (json_value*)realloc(val->arr.values, capacity * sizeof(json_value));
     val->arr.capacity = capacity;
 }
 
@@ -516,16 +559,70 @@ void clear_value_array(json_value* val) {
     val->arr.size = 0;
 }
 
+#define UP_ARRAY_CAPACITY(val)\
+    do {\
+        if (val->arr.size >= val->arr.capacity) {\
+            val->arr.capacity += val->arr.capacity >> 1;\
+            val->arr.values = (json_value*)realloc(val->arr.values, val->arr.capacity * sizeof(json_value));\
+        }\
+    } while(0)
+
 void array_push_back(json_value* val, const json_value* e) {
     assert(val != NULL && e != NULL && val->type == VALUE_ARRAY);
-    if (val->arr.size >= val->arr.capacity) val->arr.capacity += val->arr.capacity >> 1;
-    val->arr.values = (json_value*)realloc(val->arr.values, val->arr.capacity * sizeof(json_value));
+    if (val->arr.size >= val->arr.capacity) {
+        val->arr.capacity += val->arr.capacity >> 1;
+        val->arr.values = (json_value*)realloc(val->arr.values, val->arr.capacity * sizeof(json_value));
+    }
     value_copy(&val->arr.values[val->arr.size++], e);
 }
 
+void array_push_front(json_value* val, const json_value* e) {
+    assert(val != NULL && e != NULL && val->type == VALUE_ARRAY);
+    if (val->arr.size >- val->arr.capacity) {
+        val->arr.capacity += val->arr.capacity >> 1;
+        val->arr.values = (json_value*)realloc(val->arr.values, val->arr.capacity * sizeof(json_value));
+    }
+    memmove(&val->arr.values[1], &val->arr.values[0], val->arr.size++ * sizeof(json_value));
+    value_copy(&val->arr.values[0], e);
+}
+
 json_value* array_pop_back(json_value* val) {
-    assert(val != NULL && val->type == VALUE_ARRAY);
+    assert(val != NULL && val->type == VALUE_ARRAY && val->arr.size > 0);
     return &val->arr.values[--(val->arr.size)];
+}
+
+json_value* array_pop_front(json_value* val) {
+    assert(val != NULL && val->type == VALUE_ARRAY && val->arr.size > 0);
+    json_value* v = val->arr.values;
+    val->arr.values = &val->arr.values[1]; 
+    val->arr.size--;
+    return v;
+}
+
+void array_insert_element(json_value* val, size_t idx) {
+    assert(val != NULL && val->type == VALUE_ARRAY);
+    assert(idx >= 0 && idx <= val->arr.size);
+    UP_ARRAY_CAPACITY(val);
+    memmove(&val->arr.values[idx + 1], &val->arr.values[idx], val->arr.size - idx);
+    value_copy(&val->arr.values[idx], val);
+    val->arr.size++;
+}
+
+void array_delete_element(json_value* val, size_t idx) {
+    assert(val != NULL && val->type == VALUE_ARRAY);
+    assert(idx >= 0 && idx < val->arr.size);
+    memmove(&val->arr.values[idx], &val->arr.values[idx + 1], val->arr.size - idx - 1);
+    val->arr.size--;
+}
+
+void array_erase_element(json_value* val, size_t idx) {
+    assert(val != NULL && val->type == VALUE_ARRAY);
+    assert(idx >= 0 && idx < val->arr.size);
+    for (;val->arr.size > idx;) free_value(&val->arr.values[--val->arr.size]);
+}
+
+void array_clear_element(json_value* val) {
+    for (;val->arr.size > 0;) free_value(&val->arr.values[--val->arr.size]); 
 }
 
 json_value* get_value_array_element(const json_value* val, size_t idx) {
@@ -536,6 +633,11 @@ json_value* get_value_array_element(const json_value* val, size_t idx) {
 size_t get_value_object_size(const json_value* val) {
     assert(val != NULL && val->type == VALUE_OBJECT);
     return val->obj.size;
+}
+
+size_t get_value_object_capacity(const json_value* val) {
+    assert(val != NULL && val->type == VALUE_OBJECT);
+    return val->obj.capacity;
 }
 
 json_member* get_value_object_member(const json_value* val, size_t idx) {
@@ -634,6 +736,12 @@ generate_result stringify_value_object(parse_helper* ph, const json_value* val, 
     return ret;
 }
 
+const char* get_member_key(const json_member* m, size_t* len) {
+    assert(m != NULL);
+    *len = m->key_length;
+    return m->key;
+}
+
 json_value* get_member_value(json_member* m) {
     assert(m != NULL);
     return &m->value;
@@ -654,6 +762,24 @@ void down_member(json_member* r, json_member* m) {
         }
         down_member(LS(r), m);
     }
+}
+
+json_member* search_member(json_member* f, const char* key, size_t len) {
+    if (f->key_length == len && memcmp(f->key, key, len) == 0) return f;
+    if (strcmp(f->key, key) < 0) {
+        if (RS(f) == NULL) return NULL;
+        return search_member(RS(f), key, len);
+    } 
+    else {
+        if (LS(f) == NULL) return NULL;
+        return search_member(LS(f), key, len);
+    }
+    return NULL;
+}
+
+void rebuild_member_tree(json_value* val) {
+    json_member* root = &val->obj.members[0];
+    for (size_t i = 1; i < val->obj.size; i++) down_member(root, &val->obj.members[i]);
 }
 
 double get_value_number(const json_value* val) {
@@ -686,7 +812,6 @@ void set_value_false(json_value* val) {
     val->type = VALUE_FALSE;
 }
 
-#if 1
 void value_copy(json_value* dst, const json_value* src) {
     assert(dst != NULL && src != NULL && dst != src);
     free_value(dst);
@@ -727,16 +852,17 @@ void value_copy(json_value* dst, const json_value* src) {
                 value_init(&v);
                 value_copy(&v, &src->obj.members[i].value);
                 m.value = v;
+                m.sons[0] = m.sons[1] = NULL;
                 memcpy(&dst->obj.members[dst->obj.size++], &m, sizeof(json_member));
             }
-            dst->obj.size = dst->obj.size;
+            dst->obj.size = src->obj.size;
+            rebuild_member_tree(dst);
             break;
         default:
             value_init(dst);
             break;
     }
 }
-#endif
 
 void value_move(json_value* dst, json_value* src) {
     assert(dst != NULL && src != NULL);
@@ -769,4 +895,30 @@ int value_is_equal(const json_value* lhs, const json_value* rhs) {
         default:
             return 1;
     }
+}
+
+void member_copy(json_member* dst, const json_member* src, json_value* dstr) {
+    free(dst->key);
+    dst->sons[0] = dst->sons[1] = NULL;
+    dst->key_length = src->key_length;
+    memcpy(dst->key = (char*)malloc(dst->key_length), src->key, dst->key_length);
+    value_copy(&dst->value, &src->value);
+    rebuild_member_tree(dstr);
+}
+
+void member_move(json_member* dst, json_member* src, json_value* dstr) {
+    free(dst->key);
+    dst->sons[0] = dst->sons[1] = NULL;
+    dst->key_length = src->key_length;
+    dst->key = src->key;
+    src->key = NULL;
+    src->key_length = 0;
+    value_move(&dst->value, &src->value);
+    rebuild_member_tree(dstr);
+}
+
+int member_is_equal(const json_member* lhs, const json_member* rhs) {
+    assert(lhs != NULL && rhs != NULL);
+    if (lhs->key_length != rhs->key_length || memcmp(lhs->key, rhs->key, lhs->key_length)) return 0;
+    return value_is_equal(&lhs->value, &rhs->value);
 }
