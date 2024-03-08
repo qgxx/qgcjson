@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef _WINDOWS
+#ifdef _WIN32
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
 #endif
@@ -366,7 +366,7 @@ void test_generate() {
 }
 
 int main() {
-    #ifdef _WINDOWS
+    #ifdef _WIN32
     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
     #endif
     test_parse(); 
